@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资料提取</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            text-transform: uppercase;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #error-msg {
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>请输入提取码</h2>
+        <input type="text" id="k" placeholder="8位提取码" maxlength="8">
+        <button onclick="v()">提取资料</button>
+        <div id="error-msg">提取码错误或已失效</div>
+    </div>
+
+    <script>
+        // Obfuscated validation logic
+        // Rule: First 7 chars sum of ASCII % 36 == 8th char (in Base36)
+        function v() {
+            var i = document.getElementById('k').value.toUpperCase();
+            var e = document.getElementById('error-msg');
+
+            if (i.length !== 8) {
+                e.style.display = 'block';
+                return;
+            }
+
+            var s = 0;
+            for (var j = 0; j < 7; j++) {
+                s += i.charCodeAt(j);
+            }
+
+            var c = s % 36;
+            var r = c.toString(36).toUpperCase();
+
+            if (i.charAt(7) === r) {
+                // Valid
+                localStorage.setItem('_auth_token', Date.now());
+                window.location.href = 'list.html';
+            } else {
+                // Invalid
+                e.style.display = 'block';
+            }
+        }
+
+        document.getElementById('k').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                v();
+            }
+        });
+    </script>
+</body>
+
+</html>

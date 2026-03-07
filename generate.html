@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提取码生成器</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .code-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+            margin: 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .code-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .code-item:last-child {
+            border-bottom: none;
+        }
+
+        .copy-btn {
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .copy-btn:hover {
+            background-color: #dde2e6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>提取码生成器</h2>
+        <button onclick="generateCodes()">生成 5 个提取码</button>
+        <ul id="code-list" class="code-list">
+            <li class="code-item" style="justify-content: center; font-weight: normal; font-size: 14px; color: #999;">
+                点击按钮生成</li>
+        </ul>
+    </div>
+
+    <script>
+        function genOneCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            let sum = 0;
+
+            // Generate first 7 random characters
+            for (let i = 0; i < 7; i++) {
+                const randomChar = chars.charAt(Math.floor(Math.random() * chars.length));
+                code += randomChar;
+                sum += randomChar.charCodeAt(0);
+            }
+
+            // Calculate checksum for 8th character
+            const checksumIndex = sum % 36;
+            const checksumChar = checksumIndex.toString(36).toUpperCase();
+
+            return code + checksumChar;
+        }
+
+        function generateCodes() {
+            const listEl = document.getElementById('code-list');
+            listEl.innerHTML = '';
+
+            for (let i = 0; i < 5; i++) {
+                const code = genOneCode();
+
+                const li = document.createElement('li');
+                li.className = 'code-item';
+
+                const span = document.createElement('span');
+                span.textContent = code;
+
+                const btn = document.createElement('button');
+                btn.className = 'copy-btn';
+                btn.textContent = '复制';
+                btn.onclick = function () {
+                    navigator.clipboard.writeText(code).then(() => {
+                        btn.textContent = '已复制';
+                        setTimeout(() => btn.textContent = '复制', 2000);
+                    });
+                };
+
+                li.appendChild(span);
+                li.appendChild(btn);
+                listEl.appendChild(li);
+            }
+        }
+    </script>
+</body>
+
+</html>
