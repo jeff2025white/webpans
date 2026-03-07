@@ -159,9 +159,9 @@
 
                 loadingEl.style.display = 'none';
 
-                if (data && data.backup_domains && Array.isArray(data.backup_domains)) {
+                if (data && data.data && data.data.backup_domains && Array.isArray(data.data.backup_domains)) {
                     // Filter or normalize domains if needed
-                    data.backup_domains.forEach(domain => {
+                    data.data.backup_domains.forEach(domain => {
                         // Ensure starts with http or https
                         const url = domain.startsWith('http') ? domain : `https://${domain}`;
 
