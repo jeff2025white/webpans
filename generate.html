@@ -8,43 +8,50 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            background: linear-gradient(135deg, #1a1c29 0%, #2a2d3e 100%);
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            color: #e2e8f0;
         }
 
         .container {
-            background-color: white;
+            background-color: #2d3142;
             padding: 40px;
             border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             text-align: center;
             max-width: 500px;
             width: 90%;
+            border: 1px solid #4a5568;
         }
 
         h2 {
-            color: #333;
+            color: #f7fafc;
             margin-bottom: 25px;
+            font-weight: 500;
         }
 
         button {
-            background-color: #007bff;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
             color: white;
-            padding: 12px 20px;
+            padding: 14px 20px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
-            transition: background-color 0.3s;
-            margin-bottom: 20px;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
 
         button:hover {
-            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
         }
 
         .code-list {
@@ -52,21 +59,22 @@
             padding: 0;
             text-align: left;
             margin: 0;
-            border: 1px solid #ddd;
+            border: 1px solid #4a5568;
             border-radius: 8px;
-            background: #fafafa;
+            background: #1a202c;
         }
 
         .code-item {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            font-family: monospace;
-            font-size: 18px;
+            padding: 15px 20px;
+            border-bottom: 1px solid #2d3748;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 20px;
             font-weight: bold;
-            color: #2c3e50;
+            color: #e2e8f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            letter-spacing: 2px;
         }
 
         .code-item:last-child {
@@ -74,16 +82,25 @@
         }
 
         .copy-btn {
-            background-color: #e9ecef;
-            color: #495057;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #cbd5e0;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 13px;
             margin: 0;
+            width: auto;
+            box-shadow: none;
+            border: 1px solid #4a5568;
+            transition: all 0.2s;
+            font-weight: normal;
         }
 
         .copy-btn:hover {
-            background-color: #dde2e6;
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            border-color: #a0aec0;
+            transform: none;
+            box-shadow: none;
         }
     </style>
 </head>
@@ -91,31 +108,30 @@
 <body>
     <div class="container">
         <h2>提取码生成器</h2>
-        <button onclick="generateCodes()">生成 5 个提取码</button>
+        <button onclick="generateCodes()">生成 5 个四位提取码</button>
         <ul id="code-list" class="code-list">
-            <li class="code-item" style="justify-content: center; font-weight: normal; font-size: 14px; color: #999;">
-                点击按钮生成</li>
+            <li class="code-item"
+                style="justify-content: center; font-weight: normal; font-size: 14px; color: #a0aec0; letter-spacing: normal;">
+                点击上方按钮生成</li>
         </ul>
     </div>
 
     <script>
         function genOneCode() {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let code = '';
             let sum = 0;
 
-            // Generate first 7 random characters
-            for (let i = 0; i < 7; i++) {
-                const randomChar = chars.charAt(Math.floor(Math.random() * chars.length));
-                code += randomChar;
-                sum += randomChar.charCodeAt(0);
+            // Generate first 3 random digits
+            for (let i = 0; i < 3; i++) {
+                const randomDigit = Math.floor(Math.random() * 10);
+                code += randomDigit.toString();
+                sum += randomDigit;
             }
 
-            // Calculate checksum for 8th character
-            const checksumIndex = sum % 36;
-            const checksumChar = checksumIndex.toString(36).toUpperCase();
+            // Calculate checksum for 4th digit
+            const checksumDigit = sum % 10;
 
-            return code + checksumChar;
+            return code + checksumDigit.toString();
         }
 
         function generateCodes() {
@@ -136,8 +152,15 @@
                 btn.textContent = '复制';
                 btn.onclick = function () {
                     navigator.clipboard.writeText(code).then(() => {
+                        const originalText = btn.textContent;
                         btn.textContent = '已复制';
-                        setTimeout(() => btn.textContent = '复制', 2000);
+                        btn.style.color = '#68d391';
+                        btn.style.borderColor = '#68d391';
+                        setTimeout(() => {
+                            btn.textContent = '复制';
+                            btn.style.color = '#cbd5e0';
+                            btn.style.borderColor = '#4a5568';
+                        }, 2000);
                     });
                 };
 

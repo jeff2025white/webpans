@@ -8,58 +8,85 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: linear-gradient(135deg, #1a1c29 0%, #2a2d3e 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
+            color: #e2e8f0;
         }
 
         .container {
-            background-color: white;
+            background-color: #2d3142;
             padding: 40px;
             border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             text-align: center;
             max-width: 400px;
             width: 90%;
+            border: 1px solid #4a5568;
         }
 
         h2 {
-            color: #333;
+            color: #f7fafc;
             margin-bottom: 25px;
+            font-weight: 500;
         }
 
         input {
             width: 100%;
-            padding: 12px;
+            padding: 15px;
             margin-bottom: 20px;
-            border: 1px solid #ddd;
+            border: 1px solid #4a5568;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 18px;
             box-sizing: border-box;
-            text-transform: uppercase;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            text-align: center;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Hide number input arrows */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
         }
 
         button {
-            background-color: #4CAF50;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
             color: white;
-            padding: 12px 20px;
+            padding: 14px 20px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
+            font-weight: 600;
             width: 100%;
-            transition: background-color 0.3s;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
 
         button:hover {
-            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
         }
 
         #error-msg {
-            color: #dc3545;
+            color: #fc8181;
             margin-top: 15px;
             font-size: 14px;
             display: none;
@@ -69,33 +96,34 @@
 
 <body>
     <div class="container">
-        <h2>请输入提取码</h2>
-        <input type="text" id="k" placeholder="8位提取码" maxlength="8">
+        <h2>验证提取码</h2>
+        <input type="number" id="k" placeholder="4位数字" maxlength="4"
+            oninput="if(this.value.length > 4) this.value = this.value.slice(0,4)">
         <button onclick="v()">提取资料</button>
         <div id="error-msg">提取码错误或已失效</div>
     </div>
 
     <script>
-        // Obfuscated validation logic
-        // Rule: First 7 chars sum of ASCII % 36 == 8th char (in Base36)
+        // Obfuscated validation logic for 4-digit code
+        // Rule: Sum of first 3 digits mod 10 == 4th digit
         function v() {
-            var i = document.getElementById('k').value.toUpperCase();
+            var i = document.getElementById('k').value;
             var e = document.getElementById('error-msg');
 
-            if (i.length !== 8) {
+            if (i.length !== 4 || isNaN(i)) {
                 e.style.display = 'block';
                 return;
             }
 
             var s = 0;
-            for (var j = 0; j < 7; j++) {
-                s += i.charCodeAt(j);
+            for (var j = 0; j < 3; j++) {
+                s += parseInt(i.charAt(j), 10);
             }
 
-            var c = s % 36;
-            var r = c.toString(36).toUpperCase();
+            var c = s % 10;
+            var r = c.toString();
 
-            if (i.charAt(7) === r) {
+            if (i.charAt(3) === r) {
                 // Valid
                 localStorage.setItem('_auth_token', Date.now());
                 window.location.href = 'list.html';
