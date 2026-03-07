@@ -122,22 +122,40 @@
 
 <body>
     <div class="container">
-        <h2>🌐 万潘云存储节点池</h2>
+        <!-- Unauthorized Message -->
+        <div id="unauthorized-content" style="display: none; text-align: center; padding: 20px 0;">
+            <div style="font-size: 60px; margin-bottom: 20px; line-height: 1;">🔒</div>
+            <h2 style="border-bottom: none; margin-bottom: 15px;">访问受限</h2>
+            <p style="color: #a0aec0; margin-bottom: 35px; font-size: 16px;">您需要先验证提取码才能查看节点列表。</p>
+            <button onclick="window.location.href='index.html'"
+                style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; padding: 12px 35px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 500; font-family: inherit; transition: all 0.3s; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">
+                回到首页验证
+            </button>
+        </div>
 
-        <div id="loading" class="loading">正在获取最新分享节点，请稍候...</div>
-        <div id="error" class="error">获取网址失败，请稍后重试。</div>
+        <!-- Main Content (Hidden initially) -->
+        <div id="main-content" style="display: none;">
+            <h2>🌐 万潘云存储节点池</h2>
 
-        <ul id="links" class="link-list">
-            <!-- Links will be injected here -->
-        </ul>
+            <div id="loading" class="loading">正在获取最新分享节点，请稍候...</div>
+            <div id="error" class="error">获取网址失败，请稍后重试。</div>
 
-        <button class="logout-btn" onclick="logout()">退出验证</button>
+            <ul id="links" class="link-list">
+                <!-- Links will be injected here -->
+            </ul>
+
+            <button class="logout-btn" onclick="logout()">退出验证</button>
+        </div>
     </div>
 
     <script>
-        // Check authentication
-        if (!localStorage.getItem('_auth_token')) {
-            window.location.href = 'index.html';
+        function checkAuth() {
+            if (!localStorage.getItem('_auth_token')) {
+                document.getElementById('unauthorized-content').style.display = 'block';
+                return false;
+            }
+            document.getElementById('main-content').style.display = 'block';
+            return true;
         }
 
         function logout() {
@@ -194,8 +212,12 @@
             }
         }
 
-        // Start fetching when page loads
-        document.addEventListener('DOMContentLoaded', fetchDomains);
+        // Check auth and start fetching when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                fetchDomains();
+            }
+        });
     </script>
 </body>
 
