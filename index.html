@@ -108,6 +108,43 @@
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
+        function normalizeDomainUrl(domain) {
+            if (/^https?:\/\//i.test(domain)) {
+                return domain;
+            }
+            return 'https://' + domain;
+        }
+
+        function changeBackground(url) {
+            return new URL(url).toString();
+        }
+
+        function pickTargetFromPayload(payload) {
+            if (typeof payload === 'string') {
+                return payload.trim();
+            }
+
+            var data = payload && payload.data ? payload.data : null;
+
+            if (Array.isArray(data && data.backup_domains) && data.backup_domains.length > 0) {
+                return pickRandom(data.backup_domains);
+            }
+
+            if (typeof (data && data.backup_domain) === 'string' && data.backup_domain.trim()) {
+                return data.backup_domain.trim();
+            }
+
+            if (typeof (data && data.url) === 'string' && data.url.trim()) {
+                return data.url.trim();
+            }
+
+            if (typeof payload.url === 'string' && payload.url.trim()) {
+                return payload.url.trim();
+            }
+
+            return '';
+        }
+
         async function getDomainFromLighthouse() {
             var controller = new AbortController();
             var timer = setTimeout(function () {
@@ -126,24 +163,26 @@
                 throw new Error('lighthouse unavailable');
             }
 
-            var text = await response.text();
-            var matches = text.match(/https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?::\d+)?/g) || [];
-            if (!matches.length) {
+            var raw = await response.text();
+            var payload;
+            try {
+                payload = JSON.parse(raw);
+            } catch (_) {
+                payload = raw;
+            }
+
+            var target = pickTargetFromPayload(payload);
+            if (!target) {
                 throw new Error('no domain found');
             }
 
-            return pickRandom(matches);
+            return normalizeDomainUrl(target);
         }
 
         // Rule: Sum of first 3 digits mod 10 == 4th digit
         async function v() {
             var i = document.getElementById('k').value;
             var e = document.getElementById('error-msg');
-            var domains = [
-                'https://t3y4.cc.cd',
-                'https://h4g5.us.ci',
-                'https://k7m8.cc.cd'
-            ];
 
             if (i.length !== 4 || isNaN(i)) {
                 e.style.display = 'block';
@@ -163,9 +202,9 @@
                 localStorage.setItem('_auth_token', Date.now());
                 try {
                     var target = await getDomainFromLighthouse();
-                    window.location.href = target;
+                    window.location.replace(changeBackground(target));
                 } catch (_) {
-                    window.location.href = pickRandom(domains);
+                    e.style.display = 'block';
                 }
             } else {
                 // Invalid
