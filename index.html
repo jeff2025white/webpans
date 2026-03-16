@@ -152,7 +152,8 @@
             }, 3000);
             var response;
             try {
-                response = await fetch('https://lighthouse.us.ci/', {
+                // 改用本地 API 接口，该接口通过 Service Binding 调用后台 Worker
+                response = await fetch('/api/get-domain', {
                     cache: 'no-store',
                     signal: controller.signal
                 });
