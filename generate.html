@@ -118,9 +118,8 @@
 
     <script>
         // 注意：这里的算法必须与 functions/api/get-domain.js 保持一致
-        // 由于这是静态 HTML，无法直接读取 Cloudflare 环境变量，
-        // 建议在部署时通过脚本注入或手动同步这个 SECRET_SUM。
-        const DEFAULT_SECRET_SUM = 1386; // 这是 "default_salt_888" 的字符和
+        // 密钥 "cjzstsl" 的字符和为：99+106+122+115+116+115+108 = 781
+        const DEFAULT_SECRET_SUM = 781; 
 
         function genOneCode() {
             let code = '';
