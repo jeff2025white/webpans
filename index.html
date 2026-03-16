@@ -105,118 +105,65 @@
     </div>
 
     <script>
-        function pickRandom(arr) {
+        function _0x1a2b(arr) {
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
-        function normalizeDomainUrl(domain) {
-            if (/^https?:\/\//i.test(domain)) {
-                return domain;
+        function _0x3c4d(d) {
+            if (/^https?:\/\//i.test(d)) {
+                return d;
             }
-            return 'https://' + domain;
+            return 'https://' + d;
         }
 
-        function changeBackground(url) {
-            return new URL(url).toString();
-        }
-
-        function pickTargetFromPayload(payload) {
-            if (typeof payload === 'string') {
-                return payload.trim();
+        function _0x7g8h(p) {
+            if (typeof p === 'string') {
+                return p.trim();
             }
-
-            var data = payload && payload.data ? payload.data : null;
-
-            if (Array.isArray(data && data.backup_domains) && data.backup_domains.length > 0) {
-                return pickRandom(data.backup_domains);
+            var d = p && p.data ? p.data : null;
+            if (Array.isArray(d && d.backup_domains) && d.backup_domains.length > 0) {
+                return _0x1a2b(d.backup_domains);
             }
-
-            if (typeof (data && data.backup_domain) === 'string' && data.backup_domain.trim()) {
-                return data.backup_domain.trim();
+            if (typeof (d && d.backup_domain) === 'string' && d.backup_domain.trim()) {
+                return d.backup_domain.trim();
             }
-
-            if (typeof (data && data.url) === 'string' && data.url.trim()) {
-                return data.url.trim();
+            if (typeof (d && d.url) === 'string' && d.url.trim()) {
+                return d.url.trim();
             }
-
-            if (typeof payload.url === 'string' && payload.url.trim()) {
-                return payload.url.trim();
+            if (typeof p.url === 'string' && p.url.trim()) {
+                return p.url.trim();
             }
-
             return '';
         }
 
-        async function getDomainFromLighthouse() {
-            var controller = new AbortController();
-            var timer = setTimeout(function () {
-                controller.abort();
-            }, 3000);
-            var response;
-            try {
-                // 改用本地 API 接口，该接口通过 Service Binding 调用后台 Worker
-                response = await fetch('/api/get-domain', {
-                    cache: 'no-store',
-                    signal: controller.signal
-                });
-            } finally {
-                clearTimeout(timer);
-            }
-            if (!response.ok) {
-                throw new Error('lighthouse unavailable');
-            }
-
-            var raw = await response.text();
-            var payload;
-            try {
-                payload = JSON.parse(raw);
-            } catch (_) {
-                payload = raw;
-            }
-
-            var target = pickTargetFromPayload(payload);
-            if (!target) {
-                throw new Error('no domain found');
-            }
-
-            return normalizeDomainUrl(target);
-        }
-
-        // 现在验证逻辑在服务器端完成
-        async function v() {
+        async function _0x1k2l() {
             var i = document.getElementById('k').value;
             var e = document.getElementById('error-msg');
-
             if (i.length !== 4 || isNaN(i)) {
                 e.style.display = 'block';
                 return;
             }
-
             e.style.display = 'none';
             try {
-                // 将 4 位码发送给后端进行校验
-                var response = await fetch('/api/get-domain?code=' + i, {
+                var r = await fetch('/api/get-domain?code=' + i, {
                     cache: 'no-store'
                 });
-
-                if (!response.ok) {
-                    throw new Error('invalid code');
+                if (!r.ok) {
+                    throw new Error();
                 }
-
-                var raw = await response.text();
-                var payload;
+                var txt = await r.text();
+                var p;
                 try {
-                    payload = JSON.parse(raw);
+                    p = JSON.parse(txt);
                 } catch (_) {
-                    payload = raw;
+                    p = txt;
                 }
-
-                var target = pickTargetFromPayload(payload);
-                if (!target) {
-                    throw new Error('no domain found');
+                var t = _0x7g8h(p);
+                if (!t) {
+                    throw new Error();
                 }
-
                 localStorage.setItem('_auth_token', Date.now());
-                window.location.replace(normalizeDomainUrl(target));
+                window.location.replace(_0x3c4d(t));
             } catch (_) {
                 e.style.display = 'block';
             }
@@ -224,7 +171,7 @@
 
         document.getElementById('k').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
-                v();
+                _0x1k2l();
             }
         });
     </script>
