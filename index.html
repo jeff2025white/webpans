@@ -180,7 +180,7 @@
             return normalizeDomainUrl(target);
         }
 
-        // Rule: Sum of first 3 digits mod 10 == 4th digit
+        // 现在验证逻辑在服务器端完成
         async function v() {
             var i = document.getElementById('k').value;
             var e = document.getElementById('error-msg');
@@ -190,25 +190,33 @@
                 return;
             }
 
-            var s = 0;
-            for (var j = 0; j < 3; j++) {
-                s += parseInt(i.charAt(j), 10);
-            }
+            e.style.display = 'none';
+            try {
+                // 将 4 位码发送给后端进行校验
+                var response = await fetch('/api/get-domain?code=' + i, {
+                    cache: 'no-store'
+                });
 
-            var c = s % 10;
-            var r = c.toString();
-
-            if (i.charAt(3) === r) {
-                // Valid
-                localStorage.setItem('_auth_token', Date.now());
-                try {
-                    var target = await getDomainFromLighthouse();
-                    window.location.replace(changeBackground(target));
-                } catch (_) {
-                    e.style.display = 'block';
+                if (!response.ok) {
+                    throw new Error('invalid code');
                 }
-            } else {
-                // Invalid
+
+                var raw = await response.text();
+                var payload;
+                try {
+                    payload = JSON.parse(raw);
+                } catch (_) {
+                    payload = raw;
+                }
+
+                var target = pickTargetFromPayload(payload);
+                if (!target) {
+                    throw new Error('no domain found');
+                }
+
+                localStorage.setItem('_auth_token', Date.now());
+                window.location.replace(normalizeDomainUrl(target));
+            } catch (_) {
                 e.style.display = 'block';
             }
         }

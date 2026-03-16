@@ -117,19 +117,24 @@
     </div>
 
     <script>
+        // 注意：这里的算法必须与 functions/api/get-domain.js 保持一致
+        // 由于这是静态 HTML，无法直接读取 Cloudflare 环境变量，
+        // 建议在部署时通过脚本注入或手动同步这个 SECRET_SUM。
+        const DEFAULT_SECRET_SUM = 1386; // 这是 "default_salt_888" 的字符和
+
         function genOneCode() {
             let code = '';
             let sum = 0;
 
-            // Generate first 3 random digits
+            // 生成前三位随机数
             for (let i = 0; i < 3; i++) {
                 const randomDigit = Math.floor(Math.random() * 10);
                 code += randomDigit.toString();
                 sum += randomDigit;
             }
 
-            // Calculate checksum for 4th digit
-            const checksumDigit = sum % 10;
+            // 计算校验位：(前三位之和 + 密钥特征值) % 10
+            const checksumDigit = (sum + DEFAULT_SECRET_SUM) % 10;
 
             return code + checksumDigit.toString();
         }
