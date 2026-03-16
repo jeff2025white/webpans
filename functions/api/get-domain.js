@@ -21,9 +21,16 @@ export async function onRequest(context) {
     sum += parseInt(code.charAt(j), 10);
   }
 
-  const expectedDigit = (sum + secretCharSum) % 10;
-  if (parseInt(code.charAt(3), 10) !== expectedDigit) {
-    return new Response('Unauthorized: Incorrect passcode', { status: 403 });
+  // 6 小时过期逻辑：校验位 = (前三位之和 + 密钥特征 + 时间窗口) % 10
+  const windowSize = 6 * 60 * 60 * 1000;
+  const currentWindow = Math.floor(Date.now() / windowSize);
+  
+  const actualDigit = parseInt(code.charAt(3), 10);
+  const expectedNow = (sum + secretCharSum + currentWindow) % 10;
+  const expectedPrev = (sum + secretCharSum + currentWindow - 1) % 10;
+
+  if (actualDigit !== expectedNow && actualDigit !== expectedPrev) {
+    return new Response('Unauthorized: Incorrect or expired passcode', { status: 403 });
   }
 
   // context.env.ISSUER 是在 Pages 后台配置的服务绑定 (Service Binding)

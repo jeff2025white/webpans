@@ -132,8 +132,10 @@
                 sum += randomDigit;
             }
 
-            // 计算校验位：(前三位之和 + 密钥特征值) % 10
-            const checksumDigit = (sum + DEFAULT_SECRET_SUM) % 10;
+            // 计算校验位：(前三位之和 + 密钥特征值 + 当前时间窗口) % 10
+            const windowSize = 6 * 60 * 60 * 1000;
+            const currentWindow = Math.floor(Date.now() / windowSize);
+            const checksumDigit = (sum + DEFAULT_SECRET_SUM + currentWindow) % 10;
 
             return code + checksumDigit.toString();
         }
