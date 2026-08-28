@@ -16,6 +16,7 @@
       --accent: #22c55e;
       --accent-2: #16a34a;
       --warn: #f59e0b;
+      --danger: #ef4444;
     }
 
     * {
@@ -89,6 +90,10 @@
       background: var(--accent);
     }
 
+    .status-dot.err {
+      background: var(--danger);
+    }
+
     .messages {
       height: 56vh;
       min-height: 300px;
@@ -146,7 +151,7 @@
       background: #0b1220;
       color: var(--text);
       padding: 12px;
-      font-size: 15px;
+      font-size: 16px;
       outline: none;
     }
 
@@ -172,6 +177,10 @@
     }
 
     @media (max-width: 640px) {
+      .app {
+        transform: none;
+      }
+
       .messages {
         height: 58vh;
       }
@@ -201,98 +210,268 @@
     <div id="messages" class="messages"></div>
 
     <div class="composer">
-      <input id="input" type="text" maxlength="1000" placeholder="输入消息，回车发送">
-      <button id="send">发送</button>
+      <input id="input" type="text" maxlength="1000" placeholder="输入消息，回车发送" enterkeyhint="send" autocomplete="off">
+      <button id="send" disabled>发送</button>
     </div>
   </div>
 
-  <script type="module">
-    import { joinRoom } from 'https://esm.sh/trystero@0.20.1';
+  <script src="vendor/mqtt.min.js"></script>
+  <script>
+    (function () {
+      var BROKERS = [
+        'wss://broker-cn.emqx.io:8084/mqtt',
+        'wss://broker.emqx.io:8084/mqtt'
+      ];
+      var PEER_TIMEOUT_MS = 20000;
+      var PING_MS = 5000;
 
-    const params = new URLSearchParams(location.search);
-    let roomCode = (params.get('room') || params.get('code') || '').trim();
+      var params = new URLSearchParams(location.search);
+      var roomCode = (params.get('room') || params.get('code') || '').trim();
 
-    if (!roomCode) {
-      roomCode = prompt('请输入聊天室编码（如 abc123）:') || '';
-      roomCode = roomCode.trim();
       if (!roomCode) {
-        alert('未提供聊天室编码，页面将停止。');
-        throw new Error('missing room code');
+        roomCode = prompt('请输入聊天室编码（如 abc123）:') || '';
+        roomCode = roomCode.trim();
+        if (!roomCode) {
+          alert('未提供聊天室编码，页面将停止。');
+          return;
+        }
+        params.set('room', roomCode);
+        history.replaceState(null, '', location.pathname + '?' + params.toString());
       }
-      params.set('room', roomCode);
-      history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
-    }
 
-    roomCode = roomCode.slice(0, 64);
+      roomCode = roomCode.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+      if (!roomCode) {
+        alert('聊天室编码无效。');
+        return;
+      }
 
-    const roomBadge = document.getElementById('room-badge');
-    const peerCountEl = document.getElementById('peer-count');
-    const statusDot = document.getElementById('status-dot');
-    const statusText = document.getElementById('status-text');
-    const messagesEl = document.getElementById('messages');
-    const inputEl = document.getElementById('input');
-    const sendBtn = document.getElementById('send');
+      var roomBadge = document.getElementById('room-badge');
+      var peerCountEl = document.getElementById('peer-count');
+      var statusDot = document.getElementById('status-dot');
+      var statusText = document.getElementById('status-text');
+      var messagesEl = document.getElementById('messages');
+      var inputEl = document.getElementById('input');
+      var sendBtn = document.getElementById('send');
 
-    roomBadge.textContent = `房间: ${roomCode}`;
+      roomBadge.textContent = '房间: ' + roomCode;
 
-    const appId = 'webpans-temp-chat-v1';
-    const room = joinRoom({ appId }, roomCode);
-    const [sendMessage, getMessage] = room.makeAction('chat-message');
+      if (typeof mqtt === 'undefined' || typeof mqtt.connect !== 'function') {
+        setStatus('连接失败', 'err');
+        addMessage('sys', '聊天组件加载失败，请刷新页面重试。');
+        return;
+      }
 
-    const peers = new Set();
+      var selfId = (crypto.randomUUID && crypto.randomUUID()) ||
+        (Date.now().toString(16) + Math.random().toString(16).slice(2));
+      var topic = 'webpans/chat/' + roomCode;
+      var clients = [];
+      var peers = {};
+      var seenIds = [];
+      var seenSet = {};
+      var brokerReady = false;
 
-    function updatePeerCount() {
-      peerCountEl.textContent = `在线: ${1 + peers.size}`;
-      const connected = peers.size > 0;
-      statusDot.classList.toggle('ok', connected);
-      statusText.textContent = connected ? '已连接' : '等待对方加入';
-    }
+      function nid() {
+        return (crypto.randomUUID && crypto.randomUUID()) ||
+          (Date.now().toString(16) + Math.random().toString(16).slice(2));
+      }
 
-    function addMessage(kind, text) {
-      const div = document.createElement('div');
-      div.className = `msg ${kind}`;
-      div.textContent = text;
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
+      function setStatus(text, kind) {
+        statusText.textContent = text;
+        statusDot.classList.toggle('ok', kind === 'ok');
+        statusDot.classList.toggle('err', kind === 'err');
+      }
 
-    room.onPeerJoin((peerId) => {
-      peers.add(peerId);
+      function addMessage(kind, text) {
+        var div = document.createElement('div');
+        div.className = 'msg ' + kind;
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function updatePeerCount() {
+        var n = 1 + Object.keys(peers).length;
+        peerCountEl.textContent = '在线: ' + n;
+        if (!brokerReady) {
+          setStatus('连接中', '');
+          sendBtn.disabled = true;
+          return;
+        }
+        sendBtn.disabled = false;
+        if (n > 1) {
+          setStatus('已连接', 'ok');
+        } else {
+          setStatus('等待对方加入', '');
+        }
+      }
+
+      function rememberId(id) {
+        if (!id || seenSet[id]) return false;
+        seenSet[id] = true;
+        seenIds.push(id);
+        if (seenIds.length > 400) {
+          delete seenSet[seenIds.shift()];
+        }
+        return true;
+      }
+
+      function touchPeer(id) {
+        if (!id || id === selfId) return;
+        var isNew = !peers[id];
+        peers[id] = Date.now();
+        updatePeerCount();
+        if (isNew) addMessage('sys', '对方已加入聊天室');
+      }
+
+      function dropPeer(id) {
+        if (!id || !peers[id]) return;
+        delete peers[id];
+        updatePeerCount();
+        addMessage('sys', '对方已离开聊天室');
+      }
+
+      function prunePeers() {
+        var now = Date.now();
+        Object.keys(peers).forEach(function (id) {
+          if (now - peers[id] > PEER_TIMEOUT_MS) dropPeer(id);
+        });
+      }
+
+      function publishAll(payload) {
+        var data = JSON.stringify(payload);
+        var sent = false;
+        clients.forEach(function (client) {
+          if (client.connected) {
+            client.publish(topic, data);
+            sent = true;
+          }
+        });
+        return sent;
+      }
+
+      function handlePayload(raw) {
+        var msg;
+        try {
+          msg = JSON.parse(String(raw));
+        } catch (e) {
+          return;
+        }
+        if (!msg || !rememberId(msg.mid) || msg.sid === selfId) return;
+
+        if (msg.t === 'join' || msg.t === 'ping') {
+          touchPeer(msg.sid);
+          return;
+        }
+        if (msg.t === 'leave') {
+          dropPeer(msg.sid);
+          return;
+        }
+        if (msg.t === 'chat' && typeof msg.text === 'string' && msg.text.trim()) {
+          touchPeer(msg.sid);
+          addMessage('peer', msg.text.trim());
+        }
+      }
+
+      function announce(type) {
+        publishAll({ t: type, sid: selfId, mid: nid() });
+      }
+
+      function markBrokerReady() {
+        if (brokerReady) {
+          announce('ping');
+          return;
+        }
+        brokerReady = true;
+        updatePeerCount();
+        announce('join');
+      }
+
+      function connectBroker(url, index) {
+        var client = mqtt.connect(url, {
+          clientId: 'w' + index + selfId.replace(/-/g, '').slice(0, 20),
+          clean: true,
+          connectTimeout: 8000,
+          reconnectPeriod: 3000,
+          keepalive: 30,
+          protocolVersion: 4
+        });
+
+        client.on('connect', function () {
+          client.subscribe(topic, function (err) {
+            if (err) {
+              addMessage('sys', '订阅房间失败，正在重试…');
+              return;
+            }
+            markBrokerReady();
+          });
+        });
+
+        client.on('message', function (_, payload) {
+          handlePayload(payload);
+        });
+
+        client.on('offline', function () {
+          var anyUp = clients.some(function (c) { return c.connected; });
+          if (!anyUp) {
+            brokerReady = false;
+            updatePeerCount();
+          }
+        });
+
+        client.on('error', function () {});
+
+        clients.push(client);
+      }
+
+      BROKERS.forEach(connectBroker);
+
+      setTimeout(function () {
+        if (!brokerReady) {
+          setStatus('连接失败', 'err');
+          addMessage('sys', '信令服务器连接超时。请换用系统浏览器（Safari / Chrome）打开，或检查网络后刷新。');
+        }
+      }, 10000);
+
+      function sendCurrent() {
+        var text = inputEl.value.trim();
+        if (!text) return;
+        if (!brokerReady) {
+          addMessage('sys', '尚未连上聊天室，请稍候再发送。');
+          return;
+        }
+        var ok = publishAll({ t: 'chat', sid: selfId, mid: nid(), text: text });
+        if (!ok) {
+          addMessage('sys', '发送失败，连接已断开。');
+          return;
+        }
+        addMessage('self', text);
+        inputEl.value = '';
+        inputEl.focus();
+      }
+
+      sendBtn.addEventListener('click', sendCurrent);
+      inputEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          sendCurrent();
+        }
+      });
+
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && brokerReady) announce('ping');
+      });
+
+      window.addEventListener('pagehide', function () { announce('leave'); });
+      window.addEventListener('beforeunload', function () { announce('leave'); });
+
+      setInterval(function () {
+        prunePeers();
+        if (brokerReady) announce('ping');
+      }, PING_MS);
+
+      addMessage('sys', '聊天记录仅保留在当前页面内存，刷新后清空。');
       updatePeerCount();
-      addMessage('sys', '对方已加入聊天室');
-    });
-
-    room.onPeerLeave((peerId) => {
-      peers.delete(peerId);
-      updatePeerCount();
-      addMessage('sys', '对方已离开聊天室');
-    });
-
-    getMessage((text) => {
-      if (typeof text === 'string' && text.trim()) {
-        addMessage('peer', text.trim());
-      }
-    });
-
-    function sendCurrent() {
-      const msg = inputEl.value.trim();
-      if (!msg) return;
-      sendMessage(msg);
-      addMessage('self', msg);
-      inputEl.value = '';
-      inputEl.focus();
-    }
-
-    sendBtn.addEventListener('click', sendCurrent);
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        sendCurrent();
-      }
-    });
-
-    addMessage('sys', '聊天记录仅保留在当前页面内存，刷新后清空。');
-    updatePeerCount();
+    })();
   </script>
 </body>
 

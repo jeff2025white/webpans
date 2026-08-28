@@ -1,0 +1,17 @@
+{
+  "name": "webpan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "webpans static pages",
+  "scripts": {
+    "vendor": "mkdir -p vendor && cp node_modules/mqtt/dist/mqtt.min.js vendor/mqtt.min.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeff2025white/webpans.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "mqtt": "^5.15.2"
+  }
+}
