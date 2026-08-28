@@ -77,6 +77,14 @@
       background: rgba(255, 255, 255, 0.03);
     }
 
+    button.badge {
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      background: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.35);
+    }
+
     .status-dot {
       width: 8px;
       height: 8px;
@@ -105,8 +113,31 @@
       background: rgba(0, 0, 0, 0.15);
     }
 
-    .msg {
+    .msg-wrap {
+      display: flex;
+      flex-direction: column;
       max-width: 80%;
+      gap: 4px;
+    }
+
+    .msg-wrap.self {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .msg-wrap.peer {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .msg-name {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 0 4px;
+      font-weight: 600;
+    }
+
+    .msg {
       padding: 10px 12px;
       border-radius: 10px;
       line-height: 1.45;
@@ -115,14 +146,12 @@
     }
 
     .msg.self {
-      align-self: flex-end;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       color: #062c14;
       font-weight: 600;
     }
 
     .msg.peer {
-      align-self: flex-start;
       background: var(--panel-2);
       border: 1px solid var(--line);
     }
@@ -185,7 +214,7 @@
         height: 58vh;
       }
 
-      .msg {
+      .msg-wrap {
         max-width: 90%;
       }
 
@@ -199,9 +228,10 @@
 <body>
   <div class="app">
     <div class="top">
-      <div class="title">临时双人聊天室</div>
+      <div class="title">临时聊天室</div>
       <div class="meta">
         <span id="room-badge" class="badge">房间: -</span>
+        <button id="name-badge" class="badge" type="button" title="点击修改昵称">我: -</button>
         <span id="peer-count" class="badge">在线: 1</span>
         <span class="badge"><i id="status-dot" class="status-dot"></i><span id="status-text">连接中</span></span>
       </div>
@@ -224,6 +254,10 @@
       ];
       var PEER_TIMEOUT_MS = 20000;
       var PING_MS = 5000;
+      var DEVICE_KEY = 'webpans-chat-device-id';
+      var NAME_KEY = 'webpans-chat-display-name';
+      var SURNAMES = '赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜'.split('');
+      var GIVEN = ['三', '四', '五', '宁', '安', '和', '明', '远', '浩', '然', '嘉', '轩', '晨', '宇', '文', '博', '一', '平', '诚', '瑞', '琳', '瑶', '婷', '杰', '强', '伟', '芳', '敏', '静', '丽'];
 
       var params = new URLSearchParams(location.search);
       var roomCode = (params.get('room') || params.get('code') || '').trim();
@@ -246,6 +280,7 @@
       }
 
       var roomBadge = document.getElementById('room-badge');
+      var nameBadge = document.getElementById('name-badge');
       var peerCountEl = document.getElementById('peer-count');
       var statusDot = document.getElementById('status-dot');
       var statusText = document.getElementById('status-text');
@@ -257,12 +292,13 @@
 
       if (typeof mqtt === 'undefined' || typeof mqtt.connect !== 'function') {
         setStatus('连接失败', 'err');
-        addMessage('sys', '聊天组件加载失败，请刷新页面重试。');
+        addSys('聊天组件加载失败，请刷新页面重试。');
         return;
       }
 
-      var selfId = (crypto.randomUUID && crypto.randomUUID()) ||
-        (Date.now().toString(16) + Math.random().toString(16).slice(2));
+      var selfId = nid();
+      var deviceId = getDeviceId();
+      var selfName = resolveSelfName();
       var topic = 'webpans/chat/' + roomCode;
       var clients = [];
       var peers = {};
@@ -270,9 +306,64 @@
       var seenSet = {};
       var brokerReady = false;
 
+      renderNameBadge();
+
       function nid() {
         return (crypto.randomUUID && crypto.randomUUID()) ||
           (Date.now().toString(16) + Math.random().toString(16).slice(2));
+      }
+
+      function storageGet(key) {
+        try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+      }
+
+      function storageSet(key, value) {
+        try { localStorage.setItem(key, value); } catch (e) {}
+      }
+
+      function getDeviceId() {
+        var id = storageGet(DEVICE_KEY);
+        if (id) return id;
+        id = nid();
+        storageSet(DEVICE_KEY, id);
+        return id;
+      }
+
+      function hash32(str) {
+        var h = 2166136261;
+        for (var i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      function hashName(id) {
+        var h = hash32(String(id || ''));
+        return SURNAMES[h % SURNAMES.length] + GIVEN[(h >>> 8) % GIVEN.length];
+      }
+
+      function sanitizeName(name) {
+        return String(name || '')
+          .replace(/[\r\n\t]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 12);
+      }
+
+      function resolveSelfName() {
+        var fromUrl = sanitizeName(params.get('name') || '');
+        if (fromUrl) {
+          storageSet(NAME_KEY, fromUrl);
+          return fromUrl;
+        }
+        var saved = sanitizeName(storageGet(NAME_KEY));
+        if (saved) return saved;
+        return hashName(deviceId);
+      }
+
+      function renderNameBadge() {
+        nameBadge.textContent = '我: ' + selfName;
       }
 
       function setStatus(text, kind) {
@@ -281,12 +372,38 @@
         statusDot.classList.toggle('err', kind === 'err');
       }
 
-      function addMessage(kind, text) {
+      function addSys(text) {
         var div = document.createElement('div');
-        div.className = 'msg ' + kind;
+        div.className = 'msg sys';
         div.textContent = text;
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function addChat(kind, name, text) {
+        var wrap = document.createElement('div');
+        wrap.className = 'msg-wrap ' + kind;
+        var nameEl = document.createElement('div');
+        nameEl.className = 'msg-name';
+        nameEl.textContent = kind === 'self' ? ('我 · ' + name) : name;
+        var bubble = document.createElement('div');
+        bubble.className = 'msg ' + kind;
+        bubble.textContent = text;
+        wrap.appendChild(nameEl);
+        wrap.appendChild(bubble);
+        messagesEl.appendChild(wrap);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function labelFor(sid, name) {
+        name = sanitizeName(name) || hashName(sid) || '游客';
+        var others = [];
+        if (sid !== selfId) others.push(selfName);
+        Object.keys(peers).forEach(function (id) {
+          if (id !== sid) others.push(peers[id].name);
+        });
+        if (others.indexOf(name) === -1) return name;
+        return name + '·' + String(sid).replace(/-/g, '').slice(-2);
       }
 
       function updatePeerCount() {
@@ -301,7 +418,7 @@
         if (n > 1) {
           setStatus('已连接', 'ok');
         } else {
-          setStatus('等待对方加入', '');
+          setStatus('等待加入', '');
         }
       }
 
@@ -315,25 +432,34 @@
         return true;
       }
 
-      function touchPeer(id) {
+      function touchPeer(id, name) {
         if (!id || id === selfId) return;
-        var isNew = !peers[id];
-        peers[id] = Date.now();
+        name = sanitizeName(name) || hashName(id);
+        var prev = peers[id];
+        var isNew = !prev;
+        peers[id] = { seen: Date.now(), name: name };
         updatePeerCount();
-        if (isNew) addMessage('sys', '对方已加入聊天室');
+        if (isNew) {
+          addSys(labelFor(id, name) + ' 加入了聊天室');
+          if (brokerReady) announce('ping');
+        } else if (prev.name && prev.name !== name) {
+          addSys(labelFor(id, prev.name) + ' 改名为 ' + labelFor(id, name));
+        }
       }
 
       function dropPeer(id) {
-        if (!id || !peers[id]) return;
+        var peer = peers[id];
+        if (!id || !peer) return;
+        var name = labelFor(id, peer.name);
         delete peers[id];
         updatePeerCount();
-        addMessage('sys', '对方已离开聊天室');
+        addSys(name + ' 离开了聊天室');
       }
 
       function prunePeers() {
         var now = Date.now();
         Object.keys(peers).forEach(function (id) {
-          if (now - peers[id] > PEER_TIMEOUT_MS) dropPeer(id);
+          if (now - peers[id].seen > PEER_TIMEOUT_MS) dropPeer(id);
         });
       }
 
@@ -357,9 +483,10 @@
           return;
         }
         if (!msg || !rememberId(msg.mid) || msg.sid === selfId) return;
+        var name = sanitizeName(msg.name) || hashName(msg.sid);
 
-        if (msg.t === 'join' || msg.t === 'ping') {
-          touchPeer(msg.sid);
+        if (msg.t === 'join' || msg.t === 'ping' || msg.t === 'nick') {
+          touchPeer(msg.sid, name);
           return;
         }
         if (msg.t === 'leave') {
@@ -367,13 +494,13 @@
           return;
         }
         if (msg.t === 'chat' && typeof msg.text === 'string' && msg.text.trim()) {
-          touchPeer(msg.sid);
-          addMessage('peer', msg.text.trim());
+          touchPeer(msg.sid, name);
+          addChat('peer', labelFor(msg.sid, name), msg.text.trim());
         }
       }
 
       function announce(type) {
-        publishAll({ t: type, sid: selfId, mid: nid() });
+        publishAll({ t: type, sid: selfId, mid: nid(), name: selfName });
       }
 
       function markBrokerReady() {
@@ -399,7 +526,7 @@
         client.on('connect', function () {
           client.subscribe(topic, function (err) {
             if (err) {
-              addMessage('sys', '订阅房间失败，正在重试…');
+              addSys('订阅房间失败，正在重试…');
               return;
             }
             markBrokerReady();
@@ -428,7 +555,7 @@
       setTimeout(function () {
         if (!brokerReady) {
           setStatus('连接失败', 'err');
-          addMessage('sys', '信令服务器连接超时。请换用系统浏览器（Safari / Chrome）打开，或检查网络后刷新。');
+          addSys('信令服务器连接超时。请换用系统浏览器（Safari / Chrome）打开，或检查网络后刷新。');
         }
       }, 10000);
 
@@ -436,20 +563,34 @@
         var text = inputEl.value.trim();
         if (!text) return;
         if (!brokerReady) {
-          addMessage('sys', '尚未连上聊天室，请稍候再发送。');
+          addSys('尚未连上聊天室，请稍候再发送。');
           return;
         }
-        var ok = publishAll({ t: 'chat', sid: selfId, mid: nid(), text: text });
+        var ok = publishAll({ t: 'chat', sid: selfId, mid: nid(), name: selfName, text: text });
         if (!ok) {
-          addMessage('sys', '发送失败，连接已断开。');
+          addSys('发送失败，连接已断开。');
           return;
         }
-        addMessage('self', text);
+        addChat('self', selfName, text);
         inputEl.value = '';
         inputEl.focus();
       }
 
+      function renameSelf() {
+        var next = prompt('给自己起个名字（最多 12 字）', selfName);
+        if (next == null) return;
+        next = sanitizeName(next);
+        if (!next || next === selfName) return;
+        var old = selfName;
+        selfName = next;
+        storageSet(NAME_KEY, selfName);
+        renderNameBadge();
+        addSys('我从 ' + old + ' 改名为 ' + selfName);
+        if (brokerReady) announce('nick');
+      }
+
       sendBtn.addEventListener('click', sendCurrent);
+      nameBadge.addEventListener('click', renameSelf);
       inputEl.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -469,7 +610,7 @@
         if (brokerReady) announce('ping');
       }, PING_MS);
 
-      addMessage('sys', '聊天记录仅保留在当前页面内存，刷新后清空。');
+      addSys('你是 ' + selfName + '。点右上角名字可修改。聊天记录仅保留在当前页面内存，刷新后清空。');
       updatePeerCount();
     })();
   </script>
